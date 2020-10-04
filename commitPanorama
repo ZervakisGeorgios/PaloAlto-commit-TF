@@ -1,0 +1,74 @@
+# Importing libraries
+import re
+import paramiko
+import time
+
+'''
+Function to find the password for the Palo Alto firewall. It uses a Regexs pattern to match the tfvars file from TF
+'''
+
+
+def getCreds():
+    # Opening to read the tfvars file
+    with open("REPLACE WITH FULL PATH OF YOUR terraform.tfvars FILE") as f:
+        lines = f.read().splitlines()
+
+    # Creating the regexs patterns to match the lines with the FW IP, username & password.
+    # Each pattern consists of 4 groups. The first group matches the keyword. The second group matches 1 to 3 any characters. One of them being the equal '=' sign,
+    # while the last character shoudl be " which will be the start of the string we are searching (since it is defined as a string in the tfvars file).
+    # The 3rd group matches the username/password/FW IP. For the later it strictly matches an IP address.
+    route_pattern_password = re.compile('(password)(.{1,3}")(.{1,20})(")')
+    route_pattern_username = re.compile('(username)(.{1,3}")(.{1,20})(")')
+    route_pattern_fwip = re.compile('(firewall-mgmt-ip)(.{1,3}")([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})(")')
+    # dictionary to store the values
+    l = {'fwip' : '',
+         'username' : '',
+         'password' : ''
+    }
+    # Iterates the list of lineσ
+    for i in lines:
+        # Checks the pattern if matches
+        route_match_password = route_pattern_password.search(i)
+        route_match_username = route_pattern_username.search(i)
+        route_match_fwip = route_pattern_fwip.search(i)
+        # if it matches, it stores the value
+        if route_match_fwip:
+            l['fwip'] = route_match_fwip.group(3)
+        if route_match_username:
+            l['username'] = route_match_username.group(3)
+        if route_match_password:
+            # print(route_match.group(3))
+            l['password'] = route_match_password.group(3)
+
+    # Closes the file
+    f.close()
+    # Returns the dictionary
+    return l
+
+'''
+SSH into the firewall to commit the changes
+'''
+
+
+def commitPalo(fwip, username, password):
+    SESSION = paramiko.SSHClient()
+    # define session
+    SESSION.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    # connection parameters
+    SESSION.connect(fwip, port=22, username=username,
+                    password=password, look_for_keys=False, allow_agent=False)
+    # open interactive shell
+    DEVICE_ACCESS = SESSION.invoke_shell()
+    # DEVICE_ACCESS.send('commit')
+    # how long for script to run in seconds
+    time.sleep(4)
+    output = DEVICE_ACCESS.recv(65000).decode('ascii')
+    print(output)
+    SESSION.close()
+
+    return output
+
+
+if __name__ == '__main__':
+    d = getCreds()
+    print(commitPalo(d['fwip'], d['username'], d['password']))
