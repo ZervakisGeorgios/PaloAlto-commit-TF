@@ -59,7 +59,7 @@ def commitPalo(fwip, username, password):
                     password=password, look_for_keys=False, allow_agent=False)
     # open interactive shell
     DEVICE_ACCESS = SESSION.invoke_shell()
-    # DEVICE_ACCESS.send('commit')
+    DEVICE_ACCESS.send('commit')
     # how long for script to run in seconds
     time.sleep(4)
     output = DEVICE_ACCESS.recv(65000).decode('ascii')
